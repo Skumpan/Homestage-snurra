@@ -182,7 +182,7 @@ function skapaBerakning() {
       gransforslag: null, justeringTillampad: false,
       stagingunderlag: null, stagingKomplett: false,
       delsumma: 0, total: null, saknas: [],
-      preliminar: false, offert: false, offertSkal: [], flaggad: false,
+      preliminar: false, flaggad: false,
       ingaendeZoner: null, harInnehall: false, forlangning: null
     };
 
@@ -359,7 +359,7 @@ function skapaBerakning() {
       else res.saknas.push(r.text);
     });
     res.total = res.harInnehall && res.saknas.length === 0 ? res.delsumma : null;
-    res.preliminar = res.offert || res.saknas.length > 0;
+    res.preliminar = res.saknas.length > 0;
     return res;
   }
 
@@ -434,7 +434,6 @@ function skapaBerakning() {
       var h = '';
       if (vald) h += '<p style="' + F + 'font-size:11px;letter-spacing:1px;text-transform:uppercase;color:' + GRA + ';margin:0 0 2px;font-weight:bold">Vald nivå</p>';
       h += '<h2 style="font-family:Georgia,serif;font-size:' + (vald ? '20px' : '17px') + ';color:' + (vald ? TEXT : GRA) + ';margin:0 0 10px">' + esc(rubrik) + '</h2>';
-      if (res.offert) h += '<p style="' + F + 'font-size:13px;color:#6b4e8a;border-left:3px solid #b9a0d6;padding:2px 0 2px 10px;margin:0 0 10px">Kräver bedömning: ' + esc(res.offertSkal.join(' · ')) + '</p>';
       res.varningar.forEach(function (v) {
         h += '<p style="' + F + 'font-size:13px;color:#8a5a12;border-left:3px solid #d9b26a;padding:2px 0 2px 10px;margin:0 0 10px">' + esc(v.text) + ' Förslaget är inte använt.</p>';
       });
@@ -484,7 +483,6 @@ function skapaBerakning() {
     // --- Text ---
     function textblock(res, rubrik) {
       var t = '\n' + rubrik + '\n' + new Array(rubrik.length + 1).join('-') + '\n';
-      if (res.offert) t += 'Kräver bedömning: ' + res.offertSkal.join(' · ') + '\n';
       res.varningar.forEach(function (v) { t += 'Obs: ' + v.text + ' Förslaget är inte använt.\n'; });
       res.rader.forEach(function (r) {
         t += r.text + ': ' + (r.status === 'ok' ? kr(r.belopp) + ' kr' : 'kräver bedömning') + (r.detalj ? ' – ' + r.detalj : '') + '\n';

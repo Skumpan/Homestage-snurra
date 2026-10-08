@@ -48,4 +48,4 @@ Sammanfatta på 2-4 meningar: vad som gjordes, vad som testades, vad som inte ku
 ## Projektfakta (fyll i när projektet är valt)
 - Språk/teknik: Google Apps Script (Kod.gs, Berakning.gs) med en webbsida i HTML/JavaScript (Index.html), kopplat till ett Google-kalkylblad.
 - Hur man kör projektet: Koden kopieras in i Apps Script-editorn och provas i kalkylbladet. Den går inte att köra i molnet.
-- Hur man kör tester:
+- Hur man kör tester: Claude provkör beräkningarna i Berakning.gs i Node (finns i molnet) med ett tillfälligt skript som jämför resultat före/efter en ändring och kontrollerar kända exempel. Kod.gs (PIN, kalkylblad, mejl) och själva sidan kan bara provas i Apps Script.
