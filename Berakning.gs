@@ -464,6 +464,8 @@ function skapaBerakning() {
     }
 
     var html = '<div style="' + F + 'color:' + TEXT + ';max-width:640px;-webkit-text-size-adjust:100%;text-size-adjust:100%">';
+    // Loggan bifogas som inbäddad bild av skickaMejl() i Kod.gs (cid:logga)
+    html += '<img src="cid:logga" alt="h.e.m staging" width="200" style="display:block;width:200px;max-width:60%;height:auto;border:0;margin:0 0 16px">';
     html += '<p style="' + F + 'font-size:12px;letter-spacing:1px;text-transform:uppercase;color:' + GRA + ';margin:0">Prisberäkning homestaging</p>';
     html += '<h1 style="font-family:Georgia,serif;font-size:24px;margin:4px 0 2px">' + esc(adress) + '</h1>';
     html += '<p style="' + F + 'font-size:13px;color:' + GRA + ';margin:0 0 18px">' + esc(datum) + ' · Alla belopp i kronor inklusive moms</p>';

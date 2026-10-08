@@ -231,5 +231,50 @@ test('Adress med specialtecken skyddas i html', () => {
 });
 test('Offertflagga syns i mejlet', () => sant(B.byggMejl(P, inm({ manuellOffert: true }), 'A 1', 'd').text.indexOf('FLAGGAD') >= 0));
 
+// ---- Logga ----
+test('Mejl-HTML har exakt en cid:logga-bild, före adressrubriken', () => {
+  const m = B.byggMejl(P, inm({}), 'Storgatan 1', 'd');
+  lika(m.html.split('cid:logga').length - 1, 1, 'antal cid:logga');
+  lika((m.html.match(/<img\b/g) || []).length, 1, 'antal bilder');
+  sant(/<img src="cid:logga"[^>]*alt="h\.e\.m staging"/.test(m.html), 'bild med rätt alt-text');
+  const bild = m.html.indexOf('cid:logga'), rubrik = m.html.indexOf('<h1');
+  sant(bild >= 0 && rubrik >= 0 && bild < rubrik, 'bilden ska komma före <h1>');
+  sant(bild < m.html.indexOf('Storgatan 1'), 'bilden ska komma före adressen');
+});
+test('Textversionen av mejlet påverkas inte av loggan', () => {
+  const m = B.byggMejl(P, inm({}), 'Storgatan 1', 'd');
+  sant(!/cid:|logga|<img|<\/?[a-z][^>]*>/i.test(m.text), 'text innehåller logga eller html');
+  sant(m.text.indexOf('Storgatan 1') >= 0 && m.text.replace(/ /g, ' ').indexOf('TOTALT: 15 000 kr') >= 0, 'text saknar adress/total');
+});
+
+const loggaKod = fs.readFileSync(path.join(__dirname, '..', 'Logga.gs'), 'utf8');
+function loggaStrang() {
+  const t = loggaKod.match(/var\s+LOGGA_BASE64\s*=\s*'([^']*)'\s*;/);
+  if (!t) throw new Error('hittar inte LOGGA_BASE64 i Logga.gs');
+  return t[1];
+}
+test('LOGGA_BASE64 är en giltig PNG, 640 x 309, under 40 kB', () => {
+  const b64 = loggaStrang();
+  sant(b64.length > 100, 'för kort');
+  sant(/^[A-Za-z0-9+/]+={0,2}$/.test(b64), 'ogiltiga base64-tecken');
+  const buf = Buffer.from(b64, 'base64');
+  sant(buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), 'fel PNG-filhuvud');
+  lika(buf.subarray(12, 16).toString('ascii'), 'IHDR', 'första block');
+  lika(buf.readUInt32BE(16), 640, 'bredd'); lika(buf.readUInt32BE(20), 309, 'höjd');
+  lika(buf.subarray(buf.length - 8, buf.length - 4).toString('ascii'), 'IEND', 'filslut');
+  sant(buf.length < 40 * 1024, 'större än 40 kB: ' + buf.length);
+});
+test('loggaDataUrl() ger data:image/png;base64-adress (Logga.gs körd med låtsas-Utilities)', () => {
+  const l = vm.createContext({ Utilities: {
+    base64Decode: (s) => Array.from(Buffer.from(s, 'base64')),
+    newBlob: (data, typ, namn) => ({ data: data, typ: typ, namn: namn }) } });
+  vm.runInContext(loggaKod, l);
+  const url = vm.runInContext('loggaDataUrl()', l);
+  sant(url.indexOf('data:image/png;base64,') === 0, 'fel början');
+  lika(url.slice('data:image/png;base64,'.length), loggaStrang(), 'samma data som strängen');
+  const blob = vm.runInContext('loggaBlob()', l);
+  lika(blob.typ, 'image/png'); lika(blob.namn, 'logga.png'); sant(blob.data.length > 100, 'tom bild');
+});
+
 console.log('\n' + ok + ' godkända, ' + fel + ' underkända (' + (ok + fel) + ' tester)');
 process.exit(fel ? 1 : 0);

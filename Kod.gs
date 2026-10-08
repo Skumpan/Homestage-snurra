@@ -104,8 +104,17 @@ function skickaMejl(pin, inmatning, adress) {
   if (mejl.fel) return { status: 'inmatningsfel', fel: mejl.fel };
 
   var till = mottagare();
+  var meddelande = { to: till, subject: mejl.amne, htmlBody: mejl.html, body: mejl.text, name: AVSANDARNAMN };
   try {
-    MailApp.sendEmail({ to: till, subject: mejl.amne, htmlBody: mejl.html, body: mejl.text, name: AVSANDARNAMN });
+    try {
+      meddelande.inlineImages = { logga: loggaBlob() };
+      MailApp.sendEmail(meddelande);
+    } catch (e) {
+      // Krånglar loggan ska priset ändå komma fram, då utan logga
+      delete meddelande.inlineImages;
+      meddelande.htmlBody = mejl.html.replace(/<img src="cid:logga"[^>]*>/, '');
+      MailApp.sendEmail(meddelande);
+    }
   } catch (e) {
     return { status: 'mejlfel', meddelande: 'Mejlet kunde inte skickas. Kontakta administratören.' };
   }
