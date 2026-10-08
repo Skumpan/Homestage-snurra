@@ -54,6 +54,15 @@
   #pinmeddelande { white-space: pre-line; min-height: 44px; margin-top: 14px; color: var(--dampad); font-size: 15px; max-width: 300px; }
   #pinmeddelande.fel { color: var(--fel); }
 
+  /* ---------- Logga ---------- */
+  /* Loggan har vit bakgrund: i ljust läge smälter den in (multiply), i mörkt läge ligger den på en vit platta. */
+  .logga { display: block; width: 210px; max-width: 70%; height: auto; mix-blend-mode: multiply; }
+  #pin .logga { width: 240px; margin: 0 auto 22px; }
+  #kalkyl > .logga { margin: 22px auto 0; }
+  @media (prefers-color-scheme: dark) {
+    .logga { mix-blend-mode: normal; background: #fff; border-radius: 14px; padding: 8px 12px; }
+  }
+
   /* ---------- Kalkyl ---------- */
   header { display: flex; align-items: baseline; justify-content: space-between; padding: 22px 2px 14px; }
   header h1 { font-family: var(--serif); font-weight: 600; font-size: 26px; margin: 0; letter-spacing: -.01em; }
@@ -150,6 +159,7 @@
 
 <!-- ============ PIN ============ -->
 <section id="pin">
+  <img class="logga" src="<?!= loggaDataUrl() ?>" width="640" height="309" alt="h.e.m staging">
   <p class="marke">Prisberäkning</p>
   <p class="under">Homestaging</p>
   <input id="pinfalt" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" aria-label="PIN-kod" placeholder="••••••">
@@ -158,6 +168,7 @@
 
 <!-- ============ Kalkyl ============ -->
 <main id="kalkyl" class="dold">
+  <img class="logga" src="<?!= loggaDataUrl() ?>" width="640" height="309" alt="h.e.m staging">
   <header>
     <h1>Prisberäkning</h1>
     <button class="lank" id="nykalkyl" type="button">Ny kalkyl</button>
@@ -541,7 +552,7 @@
     }
     if (res.forlangning) {
       var f = res.forlangning;
-      html += '<div class="forlang">Vid förlängning, ingår inte i totalen: ' + (f.perVecka === null ? 'kräver komplett stagingunderlag.'
+      html += '<div class="forlang">Pris förlängning ' + (f.perVecka === null ? 'kräver komplett stagingunderlag.'
         : '<b>' + B.kr(f.perVecka) + ' kr</b> per påbörjad vecka efter ' + f.veckor + ' veckor (' + B.decimal(f.procent) + ' % av stagingunderlaget, före rabatt).') + '</div>';
     }
     $('spec').innerHTML = html;

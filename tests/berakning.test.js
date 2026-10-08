@@ -231,5 +231,118 @@ test('Adress med specialtecken skyddas i html', () => {
 });
 test('Offertflagga syns i mejlet', () => sant(B.byggMejl(P, inm({ manuellOffert: true }), 'A 1', 'd').text.indexOf('FLAGGAD') >= 0));
 
+// ---- Logga ----
+test('Mejl-HTML har exakt en cid:logga-bild, före adressrubriken', () => {
+  const m = B.byggMejl(P, inm({}), 'Storgatan 1', 'd');
+  lika(m.html.split('cid:logga').length - 1, 1, 'antal cid:logga');
+  lika((m.html.match(/<img\b/g) || []).length, 1, 'antal bilder');
+  sant(/<img src="cid:logga"[^>]*alt="h\.e\.m staging"/.test(m.html), 'bild med rätt alt-text');
+  const bild = m.html.indexOf('cid:logga'), rubrik = m.html.indexOf('<h1');
+  sant(bild >= 0 && rubrik >= 0 && bild < rubrik, 'bilden ska komma före <h1>');
+  sant(bild < m.html.indexOf('Storgatan 1'), 'bilden ska komma före adressen');
+});
+test('Textversionen av mejlet påverkas inte av loggan', () => {
+  const m = B.byggMejl(P, inm({}), 'Storgatan 1', 'd');
+  sant(!/cid:|logga|<img|<\/?[a-z][^>]*>/i.test(m.text), 'text innehåller logga eller html');
+  sant(m.text.indexOf('Storgatan 1') >= 0 && m.text.replace(/ /g, ' ').indexOf('TOTALT: 15 000 kr') >= 0, 'text saknar adress/total');
+});
+
+// ---- Mejl: ämne, rubrik, datum, momsrad, förlängning ----
+const utanTaggar = (h) => h.replace(/<[^>]*>/g, '');
+const NBSP = ' ';
+const antal = (s, d) => s.split(d).length - 1;
+test('Mejlets ämne är exakt "<adress> - h.e.m prisberäkning"', () => {
+  lika(B.byggMejl(P, inm({}), 'Storgatan 1', 'x').amne, 'Storgatan 1 - h.e.m prisberäkning');
+  lika(B.byggMejl(P, inm({}), '  Villa   Björk 5B ', 'x').amne, 'Villa Björk 5B - h.e.m prisberäkning');
+});
+test('Mejlet saknar "Prisberäkning homestaging" och datum/klockslag', () => {
+  [inm({}), inm({ forlangVisa: true, rabattTyp: 'procent', rabattVarde: 5 })].forEach((i) => {
+    const m = B.byggMejl(P, i, 'Storgatan 1', '2026-01-01 12:30');
+    [m.html, utanTaggar(m.html), m.text].forEach((s) => {
+      sant(!/prisberäkning homestaging/i.test(s), 'rubrik kvar');
+      sant(!/\d{4}-\d{2}-\d{2}/.test(s), 'datum kvar');
+      sant(!/\b\d{1,2}:\d{2}\b/.test(s), 'klockslag kvar');
+      sant(!/\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b/.test(s), 'annat datumformat kvar');
+    });
+  });
+});
+test('Momsraden står under totalsumman i varje nivåblock (3 i html, 3 i text)', () => {
+  const M = 'Alla belopp i kronor inklusive moms';
+  const m = B.byggMejl(P, inm({ niva: 'komp' }), 'Storgatan 1', 'x');
+  lika(antal(m.html, M), 3, 'html'); lika(antal(m.text, M), 3, 'text');
+  // html: varje momsrad kommer direkt efter en tabell som slutar med Totalt
+  lika(antal(m.html, '</table><p style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7a7268;margin:8px 0 0">' + M), 3, 'html direkt efter tabell');
+  // momsrad före första totalsumman = i toppen
+  sant(m.html.indexOf(M) > m.html.indexOf('Totalt'), 'html: moms före första totalen');
+  sant(m.text.indexOf(M) > m.text.indexOf('TOTALT'), 'text: moms före första totalen');
+  // text: raden direkt efter varje TOTALT-rad
+  const rader = m.text.split('\n');
+  const tot = rader.map((r, i) => (r.indexOf('TOTALT') === 0 ? i : -1)).filter((i) => i >= 0);
+  lika(tot.length, 3, 'antal TOTALT-rader');
+  tot.forEach((i) => lika(rader[i + 1], M, 'rad efter TOTALT'));
+  // och inte i toppen: adressen är första raden, momsraden inte rad 2
+  lika(rader[0], 'Storgatan 1'); sant(rader[1] !== M, 'moms i toppen');
+});
+test('Momsraden finns en gång när bara en nivå visas (yta saknas ger fel, så 3 nivåer krävs yta)', () => {
+  const m = B.byggMejl(P, inm({ yta: 60 }), 'A 1', 'x');
+  lika(antal(m.html, 'Alla belopp i kronor inklusive moms'), 1 + m.ovriga.length);
+  lika(m.ovriga.length, 2);
+});
+test('Förlängning: "Pris förlängning <belopp> kr per påbörjad vecka efter 6 veckor (10 % ...)" i html och text', () => {
+  // Handräknat, 60 kvm: Light 15 000 -> 1 500, Komp 18 000 -> 1 800, Full 21 000 -> 2 100 (10 %)
+  const m = B.byggMejl(P, inm({ niva: 'full', forlangVisa: true }), 'Storgatan 1', 'x');
+  const forv = (b) => 'Pris förlängning ' + b + ' kr per påbörjad vecka efter 6 veckor (10 % av stagingunderlaget, före rabatt).';
+  const h = utanTaggar(m.html);
+  ['2' + NBSP + '100', '1' + NBSP + '500', '1' + NBSP + '800'].forEach((b) => {
+    sant(h.indexOf(forv(b)) >= 0, 'html saknar: ' + forv(b));
+    sant(m.text.indexOf(forv(b)) >= 0, 'text saknar: ' + forv(b));
+  });
+  lika(antal(h, 'Pris förlängning '), 3, 'html antal'); lika(antal(m.text, 'Pris förlängning '), 3, 'text antal');
+  sant(m.html.indexOf('>2' + NBSP + '100 kr</b> per påbörjad vecka') >= 0, 'belopp ska vara i fetstil');
+  lika(m.text.split('\n').filter((r) => r.indexOf('Pris förlängning ') === 0).length, 3, 'raden ska börja med texten');
+  [m.html, h, m.text].forEach((s) => {
+    sant(s.indexOf('Vid förlängning') < 0, '"Vid förlängning" kvar');
+    sant(s.indexOf('ingår inte i totalen') < 0, '"ingår inte i totalen" kvar');
+  });
+});
+test('Förlängningsbeloppet räknas före rabatt och är inte med i totalen', () => {
+  const m = B.byggMejl(P, inm({ niva: 'full', forlangVisa: true, rabattTyp: 'belopp', rabattVarde: 1000 }), 'A 1', 'x');
+  sant(m.text.indexOf('Pris förlängning 2' + NBSP + '100 kr') >= 0, 'ska vara 10 % av 21 000 trots rabatt');
+  lika(m.vald.total, 20000, 'total med rabatt');
+});
+test('Utan forlangVisa finns ingen förlängningstext i mejlet', () => {
+  const m = B.byggMejl(P, inm({}), 'A 1', 'x');
+  sant(m.html.indexOf('Pris förlängning') < 0 && m.text.indexOf('Pris förlängning') < 0);
+});
+
+const loggaKod = fs.readFileSync(path.join(__dirname, '..', 'Logga.gs'), 'utf8');
+function loggaStrang() {
+  const t = loggaKod.match(/var\s+LOGGA_BASE64\s*=\s*'([^']*)'\s*;/);
+  if (!t) throw new Error('hittar inte LOGGA_BASE64 i Logga.gs');
+  return t[1];
+}
+test('LOGGA_BASE64 är en giltig PNG, 640 x 309, under 40 kB', () => {
+  const b64 = loggaStrang();
+  sant(b64.length > 100, 'för kort');
+  sant(/^[A-Za-z0-9+/]+={0,2}$/.test(b64), 'ogiltiga base64-tecken');
+  const buf = Buffer.from(b64, 'base64');
+  sant(buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), 'fel PNG-filhuvud');
+  lika(buf.subarray(12, 16).toString('ascii'), 'IHDR', 'första block');
+  lika(buf.readUInt32BE(16), 640, 'bredd'); lika(buf.readUInt32BE(20), 309, 'höjd');
+  lika(buf.subarray(buf.length - 8, buf.length - 4).toString('ascii'), 'IEND', 'filslut');
+  sant(buf.length < 40 * 1024, 'större än 40 kB: ' + buf.length);
+});
+test('loggaDataUrl() ger data:image/png;base64-adress (Logga.gs körd med låtsas-Utilities)', () => {
+  const l = vm.createContext({ Utilities: {
+    base64Decode: (s) => Array.from(Buffer.from(s, 'base64')),
+    newBlob: (data, typ, namn) => ({ data: data, typ: typ, namn: namn }) } });
+  vm.runInContext(loggaKod, l);
+  const url = vm.runInContext('loggaDataUrl()', l);
+  sant(url.indexOf('data:image/png;base64,') === 0, 'fel början');
+  lika(url.slice('data:image/png;base64,'.length), loggaStrang(), 'samma data som strängen');
+  const blob = vm.runInContext('loggaBlob()', l);
+  lika(blob.typ, 'image/png'); lika(blob.namn, 'logga.png'); sant(blob.data.length > 100, 'tom bild');
+});
+
 console.log('\n' + ok + ' godkända, ' + fel + ' underkända (' + (ok + fel) + ' tester)');
 process.exit(fel ? 1 : 0);

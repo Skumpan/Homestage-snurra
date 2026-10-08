@@ -408,9 +408,8 @@ function skapaBerakning() {
 
   /**
    * Bygger mejlet. Returnerar { fel } eller { amne, html, text }.
-   * datum är en färdigformaterad sträng.
    */
-  function byggMejl(priser, inn, adress, datum) {
+  function byggMejl(priser, inn, adress) {
     adress = String(adress || '').replace(/\s+/g, ' ').trim();
     if (!adress) return { fel: ['Ange objektets adress.'] };
     if (adress.length > 200) return { fel: ['Adressen är för lång.'] };
@@ -455,18 +454,19 @@ function skapaBerakning() {
           td('<b>' + kr(res.delsumma) + ' kr</b>', 'text-align:right;white-space:nowrap;' + summaStil) + '</tr>';
       }
       h += '</table>';
+      h += '<p style="' + F + 'font-size:12px;color:' + GRA + ';margin:8px 0 0">Alla belopp i kronor inklusive moms</p>';
       if (res.forlangning) {
         var f = res.forlangning;
-        h += '<p style="' + F + 'font-size:13px;color:' + GRA + ';margin:12px 0 0">Vid förlängning, ingår inte i totalen: ' +
+        h += '<p style="' + F + 'font-size:13px;color:' + GRA + ';margin:12px 0 0">Pris förlängning ' +
           (f.perVecka === null ? 'kräver komplett stagingunderlag.' : '<b style="color:' + TEXT + '">' + kr(f.perVecka) + ' kr</b> per påbörjad vecka efter ' + f.veckor + ' veckor (' + decimal(f.procent) + ' % av stagingunderlaget, före rabatt).') + '</p>';
       }
       return h;
     }
 
     var html = '<div style="' + F + 'color:' + TEXT + ';max-width:640px;-webkit-text-size-adjust:100%;text-size-adjust:100%">';
-    html += '<p style="' + F + 'font-size:12px;letter-spacing:1px;text-transform:uppercase;color:' + GRA + ';margin:0">Prisberäkning homestaging</p>';
-    html += '<h1 style="font-family:Georgia,serif;font-size:24px;margin:4px 0 2px">' + esc(adress) + '</h1>';
-    html += '<p style="' + F + 'font-size:13px;color:' + GRA + ';margin:0 0 18px">' + esc(datum) + ' · Alla belopp i kronor inklusive moms</p>';
+    // Loggan bifogas som inbäddad bild av skickaMejl() i Kod.gs (cid:logga)
+    html += '<img src="cid:logga" alt="h.e.m staging" width="200" style="display:block;width:200px;max-width:60%;height:auto;border:0;margin:0 0 16px">';
+    html += '<h1 style="font-family:Georgia,serif;font-size:24px;margin:0 0 18px">' + esc(adress) + '</h1>';
     if (vald.flaggad) html += '<p style="' + F + 'font-size:14px;font-weight:bold;color:#6b4e8a;border-left:3px solid #b9a0d6;padding:2px 0 2px 10px;margin:0 0 18px">Flaggad: individuell offert ska skrivas</p>';
     html += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr><td style="background:' + BEIGE + ';border-radius:10px;padding:18px 20px">' +
       block(vald, NIVANAMN[inn.niva], true) + '</td></tr></table>';
@@ -490,11 +490,12 @@ function skapaBerakning() {
       if (res.stagingunderlag !== null) t += 'Stagingunderlag: ' + kr(res.stagingunderlag) + ' kr\n';
       t += res.total !== null ? (res.preliminar ? 'TOTALT (preliminärt): ' : 'TOTALT: ') + kr(res.total) + ' kr\n'
         : 'Delsumma, beräknade delar: ' + kr(res.delsumma) + ' kr (saknas: ' + res.saknas.join(', ') + ')\n';
-      if (res.forlangning) t += 'Vid förlängning, ingår inte i totalen: ' + (res.forlangning.perVecka === null ? 'kräver komplett stagingunderlag'
-        : kr(res.forlangning.perVecka) + ' kr per påbörjad vecka efter ' + res.forlangning.veckor + ' veckor, före rabatt') + '\n';
+      t += 'Alla belopp i kronor inklusive moms\n';
+      if (res.forlangning) t += 'Pris förlängning ' + (res.forlangning.perVecka === null ? 'kräver komplett stagingunderlag.'
+        : kr(res.forlangning.perVecka) + ' kr per påbörjad vecka efter ' + res.forlangning.veckor + ' veckor (' + decimal(res.forlangning.procent) + ' % av stagingunderlaget, före rabatt).') + '\n';
       return t;
     }
-    var text = 'Prisberäkning homestaging\n' + adress + '\n' + datum + '\nAlla belopp i kronor inklusive moms\n';
+    var text = adress + '\n';
     if (vald.flaggad) text += 'FLAGGAD: individuell offert ska skrivas\n';
     text += textblock(vald, 'VALD NIVÅ: ' + NIVANAMN[inn.niva]);
     if (ovriga.length) {
@@ -502,7 +503,7 @@ function skapaBerakning() {
       ovriga.forEach(function (x) { text += textblock(x.res, NIVANAMN[x.niva] + ' (ej vald)'); });
     }
 
-    return { amne: 'Prisberäkning – ' + adress, html: html, text: text, vald: vald, ovriga: ovriga };
+    return { amne: adress + ' - h.e.m prisberäkning', html: html, text: text, vald: vald, ovriga: ovriga };
   }
 
   return {
