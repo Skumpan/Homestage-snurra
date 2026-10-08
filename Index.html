@@ -552,7 +552,7 @@
     }
     if (res.forlangning) {
       var f = res.forlangning;
-      html += '<div class="forlang">Vid förlängning, ingår inte i totalen: ' + (f.perVecka === null ? 'kräver komplett stagingunderlag.'
+      html += '<div class="forlang">Pris förlängning ' + (f.perVecka === null ? 'kräver komplett stagingunderlag.'
         : '<b>' + B.kr(f.perVecka) + ' kr</b> per påbörjad vecka efter ' + f.veckor + ' veckor (' + B.decimal(f.procent) + ' % av stagingunderlaget, före rabatt).') + '</div>';
     }
     $('spec').innerHTML = html;

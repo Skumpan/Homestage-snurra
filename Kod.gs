@@ -99,8 +99,7 @@ function skickaMejl(pin, inmatning, adress) {
   if (!kontroll.ok) return { status: 'prisfel', fel: kontroll.fel };
 
   var B = skapaBerakning();
-  var datum = Utilities.formatDate(new Date(), 'Europe/Stockholm', 'yyyy-MM-dd HH:mm');
-  var mejl = B.byggMejl(kontroll.priser, B.normalisera(inmatning), adress, datum);
+  var mejl = B.byggMejl(kontroll.priser, B.normalisera(inmatning), adress);
   if (mejl.fel) return { status: 'inmatningsfel', fel: mejl.fel };
 
   var till = mottagare();
