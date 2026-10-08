@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>Prisberäkning</title>
+<style>
+  :root {
+    --bg: #f5f1ea;
+    --kort: #fffdf9;
+    --linje: #e4ddd1;
+    --text: #2a2723;
+    --dampad: #7a7268;
+    --accent: #3f5a4b;
+    --accent-ljus: #e3ebe5;
+    --accent-text: #ffffff;
+    --varning: #8a5a12;
+    --varning-bg: #fbf0dc;
+    --varning-linje: #ecd3a3;
+    --fel: #9b2c22;
+    --fel-bg: #fbe7e4;
+    --fel-linje: #efbfb8;
+    --bedom: #6b4e8a;
+    --bedom-bg: #efe8f6;
+    --skugga: 0 1px 2px rgba(42, 39, 35, .05), 0 4px 16px rgba(42, 39, 35, .05);
+    --radie: 16px;
+    --serif: ui-serif, "New York", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1a18; --kort: #252421; --linje: #393631; --text: #f1ece4; --dampad: #a39b90;
+      --accent: #8fb39d; --accent-ljus: #2c3a32; --accent-text: #14201a;
+      --varning: #f0c477; --varning-bg: #3a2f1d; --varning-linje: #5c4826;
+      --fel: #f1a097; --fel-bg: #3d2421; --fel-linje: #5e322c;
+      --bedom: #c7aee6; --bedom-bg: #322a3d;
+      --skugga: none;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.4; }
+  body { padding: 0 16px calc(110px + env(safe-area-inset-bottom)); }
+  button { font: inherit; color: inherit; }
+  .dold { display: none !important; }
+
+  /* ---------- PIN ---------- */
+  #pin { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 8px 15vh; }
+  .marke { font-family: var(--serif); font-size: 30px; letter-spacing: -.01em; margin: 0 0 6px; }
+  .under { color: var(--dampad); margin: 0 0 32px; }
+  #pinfalt { width: 100%; max-width: 260px; font-size: 32px; letter-spacing: .5em; text-align: center; padding: 14px 0 14px .5em; border: 1.5px solid var(--linje); border-radius: 14px; background: var(--kort); color: var(--text); outline: none; font-family: var(--sans); }
+  #pinfalt:focus { border-color: var(--accent); }
+  #pinmeddelande { white-space: pre-line; min-height: 44px; margin-top: 14px; color: var(--dampad); font-size: 15px; max-width: 300px; }
+  #pinmeddelande.fel { color: var(--fel); }
+
+  /* ---------- Kalkyl ---------- */
+  header { display: flex; align-items: baseline; justify-content: space-between; padding: 22px 2px 14px; }
+  header h1 { font-family: var(--serif); font-weight: 600; font-size: 26px; margin: 0; letter-spacing: -.01em; }
+  .lank { background: none; border: 0; color: var(--accent); font-weight: 600; font-size: 15px; padding: 8px 0; cursor: pointer; }
+
+  .kort { background: var(--kort); border-radius: var(--radie); box-shadow: var(--skugga); border: 1px solid var(--linje); padding: 16px; margin-bottom: 12px; }
+  .kort h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dampad); font-weight: 600; margin: 0 0 12px; }
+
+  .segment { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--bg); padding: 4px; border-radius: 12px; }
+  .segment.tva { grid-template-columns: repeat(2, 1fr); }
+  .segment button { border: 0; background: transparent; padding: 11px 4px; border-radius: 9px; font-weight: 600; font-size: 15px; color: var(--dampad); cursor: pointer; }
+  .segment button.vald { background: var(--accent); color: var(--accent-text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .nivabeskr { color: var(--dampad); font-size: 14px; margin: 10px 2px 0; min-height: 20px; }
+
+  .falt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+  .falt + .falt { border-top: 1px solid var(--linje); }
+  .falt label, .falt .etikett { font-weight: 500; }
+  .tips { display: block; font-size: 13px; color: var(--dampad); font-weight: 400; margin-top: 2px; }
+  .inmatning { display: flex; align-items: center; gap: 6px; border: 1.5px solid var(--linje); border-radius: 11px; padding: 0 12px; background: var(--bg); min-width: 128px; }
+  .inmatning:focus-within { border-color: var(--accent); }
+  .inmatning input { border: 0; background: transparent; color: var(--text); font: inherit; font-size: 18px; font-weight: 600; width: 100%; padding: 10px 0; text-align: right; outline: none; }
+  .inmatning span { color: var(--dampad); font-size: 15px; }
+  .inmatning.ogiltig { border-color: var(--fel); }
+
+  .stegare { display: flex; align-items: center; border: 1.5px solid var(--linje); border-radius: 11px; background: var(--bg); }
+  .stegare button { width: 44px; height: 44px; border: 0; background: transparent; font-size: 22px; color: var(--accent); cursor: pointer; }
+  .stegare button:disabled { color: var(--linje); }
+  .stegare output { min-width: 58px; text-align: center; font-weight: 600; font-size: 17px; }
+
+  .vaxel { position: relative; width: 51px; height: 31px; flex: none; }
+  .vaxel input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .vaxel span { position: absolute; inset: 0; background: var(--linje); border-radius: 31px; transition: background .2s; cursor: pointer; }
+  .vaxel span::after { content: ""; position: absolute; width: 27px; height: 27px; left: 2px; top: 2px; background: #fff; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: transform .2s; }
+  .vaxel input:checked + span { background: var(--accent); }
+  .vaxel input:checked + span::after { transform: translateX(20px); }
+  .tillval-huvud { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .tillval-huvud h2 { margin: 0; }
+  .tillval-kropp { margin-top: 10px; }
+
+  /* ---------- Resultat ---------- */
+  #resultat { scroll-margin-top: 12px; }
+  .ruta { border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; font-size: 15px; border: 1px solid; }
+  .ruta.fel { background: var(--fel-bg); border-color: var(--fel-linje); color: var(--fel); }
+  .ruta.varning { background: var(--varning-bg); border-color: var(--varning-linje); color: var(--varning); }
+  .ruta.offert { background: var(--bedom-bg); border-color: transparent; color: var(--bedom); }
+  .ruta strong { display: block; margin-bottom: 4px; }
+  .ruta ul { margin: 4px 0 0; padding-left: 18px; }
+  .ruta .knapp { margin-top: 10px; }
+  .knapp { display: inline-block; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 600; font-size: 15px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
+  .knapp.sekundar { background: var(--accent-ljus); color: var(--accent); }
+
+  .spec { list-style: none; margin: 0; padding: 0; }
+  .spec li { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--linje); }
+  .spec li:last-child { border-bottom: 0; }
+  .spec .namn { font-weight: 500; }
+  .spec .detalj { display: block; font-size: 13px; color: var(--dampad); margin-top: 2px; }
+  .spec .belopp { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; text-align: right; }
+  .spec .bricka { font-size: 12px; font-weight: 600; background: var(--bedom-bg); color: var(--bedom); padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+  .spec .angra { background: none; border: 0; color: var(--accent); font-size: 13px; font-weight: 600; padding: 4px 0 0; cursor: pointer; display: block; margin-left: auto; }
+  .summarad { display: flex; justify-content: space-between; padding: 12px 0 0; margin-top: 4px; border-top: 1.5px solid var(--text); font-weight: 600; }
+  .summarad.underlag { border-top: 1px dashed var(--linje); font-weight: 500; color: var(--dampad); padding-top: 10px; }
+  .summarad .belopp { font-variant-numeric: tabular-nums; }
+  .tom { color: var(--dampad); text-align: center; padding: 18px 0; margin: 0; }
+  .moms { font-size: 13px; color: var(--dampad); margin: 10px 0 0; }
+
+  /* ---------- Fast summeringsrad ---------- */
+  #summa { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); background: var(--kort); border-top: 1px solid var(--linje); display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 -4px 20px rgba(0,0,0,.06); cursor: pointer; }
+  #summa .rubrik { font-size: 13px; color: var(--dampad); }
+  #summa .rubrik b { display: block; font-size: 15px; color: var(--text); }
+  #summa .rubrik b.prel { color: var(--bedom); }
+  #summa .tal { font-family: var(--serif); font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
+  #summa .tal small { font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--dampad); margin-left: 3px; }
+  footer { text-align: center; padding: 10px 0 0; }
+  .plus { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--accent-ljus); color: var(--accent); font-size: 24px; line-height: 1; cursor: pointer; flex: none; }
+  .plus:disabled { opacity: .4; }
+  .extrarad { display: grid; grid-template-columns: 1fr 112px 32px; gap: 8px; align-items: center; margin-top: 10px; }
+  .extrarad .extratext { width: 100%; border: 1.5px solid var(--linje); border-radius: 11px; background: var(--bg); color: var(--text); font: inherit; font-size: 16px; padding: 11px 10px; outline: none; min-width: 0; }
+  .extrarad .extratext:focus { border-color: var(--accent); }
+  .extrarad .inmatning { min-width: 0; padding: 0 10px; }
+  .extrarad .inmatning input { font-size: 16px; }
+  .tabort { width: 32px; height: 32px; border: 0; background: none; color: var(--dampad); font-size: 22px; cursor: pointer; }
+  .adressfalt { width: 100%; border: 1.5px solid var(--linje); border-radius: 11px; background: var(--bg); color: var(--text); font: inherit; font-size: 17px; padding: 12px; outline: none; }
+  .adressfalt:focus { border-color: var(--accent); }
+  .forlang { margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--linje); border-radius: 10px; font-size: 14px; color: var(--dampad); }
+  .forlang b { color: var(--text); }
+  .skicka { width: 100%; padding: 15px; font-size: 17px; margin-top: 4px; }
+  .knapp:disabled { opacity: .45; cursor: default; }
+  #skickastatus { text-align: center; font-size: 14px; color: var(--dampad); min-height: 20px; margin: 8px 0 0; }
+  #skickastatus.ok { color: var(--accent); font-weight: 600; }
+  #skickastatus.fel { color: var(--fel); }
+</style>
+</head>
+<body>
+
+<!-- ============ PIN ============ -->
+<section id="pin">
+  <p class="marke">Prisberäkning</p>
+  <p class="under">Homestaging</p>
+  <input id="pinfalt" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" aria-label="PIN-kod" placeholder="••••••">
+  <div id="pinmeddelande" role="status">Ange din sexsiffriga kod</div>
+</section>
+
+<!-- ============ Kalkyl ============ -->
+<main id="kalkyl" class="dold">
+  <header>
+    <h1>Prisberäkning</h1>
+    <button class="lank" id="nykalkyl" type="button">Ny kalkyl</button>
+  </header>
+
+  <section class="kort">
+    <h2>Objekt</h2>
+    <input id="adress" class="adressfalt" type="text" autocomplete="street-address" placeholder="Adress, t.ex. Storgatan 12, Stockholm" aria-label="Objektets adress">
+  </section>
+
+  <section class="kort">
+    <h2>Stagingnivå</h2>
+    <div class="segment" id="niva" role="radiogroup">
+      <button type="button" data-varde="light">Light</button>
+      <button type="button" data-varde="komp">Kompl.</button>
+      <button type="button" data-varde="full">Full</button>
+    </div>
+    <p class="nivabeskr" id="nivabeskr"></p>
+  </section>
+
+  <section class="kort">
+    <h2>Bostaden</h2>
+    <div class="falt">
+      <label for="yta">Stylad yta<span class="tips">Invändig yta som stylas</span></label>
+      <div class="inmatning" id="ytaram"><input id="yta" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span>kvm</span></div>
+    </div>
+    <div class="falt">
+      <div class="etikett">Stagingzoner<span class="tips" id="zontips">Totalt antal zoner</span></div>
+      <div class="stegare" data-falt="zoner"><button type="button" data-steg="-1" aria-label="Färre">−</button><output id="zonervisning"></output><button type="button" data-steg="1" aria-label="Fler">+</button></div>
+    </div>
+  </section>
+
+  <section class="kort">
+    <div class="tillval-huvud"><h2>Uteyta</h2><label class="vaxel"><input type="checkbox" id="uteval"><span></span></label></div>
+    <div class="tillval-kropp dold" id="utekropp">
+      <div class="falt">
+        <label for="uteyta">Stylad uteyta<span class="tips">Sammanlagt för alla utezoner</span></label>
+        <div class="inmatning" id="uteram"><input id="uteyta" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span>kvm</span></div>
+      </div>
+      <div class="falt">
+        <div class="etikett">Separata utezoner<span class="tips" id="utezontips"></span></div>
+        <div class="stegare" data-falt="utezoner"><button type="button" data-steg="-1" aria-label="Färre">−</button><output id="utezonervisning"></output><button type="button" data-steg="1" aria-label="Fler">+</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kort">
+    <div class="tillval-huvud"><h2>Logistiktillägg</h2><label class="vaxel"><input type="checkbox" id="logval"><span></span></label></div>
+    <div class="tillval-kropp dold" id="logkropp">
+      <div class="falt">
+        <label for="logistik">Bedömt belopp<span class="tips">Inklusive moms</span></label>
+        <div class="inmatning" id="logram"><input id="logistik" type="text" inputmode="numeric" autocomplete="off" placeholder="0"><span>kr</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kort">
+    <div class="tillval-huvud"><h2>Visningsrefresh</h2><label class="vaxel"><input type="checkbox" id="refval"><span></span></label></div>
+    <div class="tillval-kropp dold" id="refkropp">
+      <div class="falt">
+        <div class="etikett">Tid dörr till dörr<span class="tips" id="reftips"></span></div>
+        <div class="stegare" data-falt="refresh"><button type="button" data-steg="-0.5" aria-label="Mindre">−</button><output id="refvisning"></output><button type="button" data-steg="0.5" aria-label="Mer">+</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kort">
+    <div class="tillval-huvud">
+      <div><h2>Extraposter</h2><span class="tips">T.ex. blommor eller växter. Pris inkl. moms.</span></div>
+      <button type="button" class="plus" id="extraplus" aria-label="Lägg till extrapost">+</button>
+    </div>
+    <div id="extralista"></div>
+  </section>
+
+  <section class="kort">
+    <div class="tillval-huvud"><h2>Rabatt</h2><label class="vaxel"><input type="checkbox" id="rabval"><span></span></label></div>
+    <div class="tillval-kropp dold" id="rabkropp">
+      <div class="segment tva" id="rabtyp" role="radiogroup">
+        <button type="button" data-varde="procent">Procent</button>
+        <button type="button" data-varde="belopp">Belopp</button>
+      </div>
+      <div class="falt">
+        <label for="rabatt">Rabatt<span class="tips" id="rabtips"></span></label>
+        <div class="inmatning" id="rabram"><input id="rabatt" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span id="rabenhet">%</span></div>
+      </div>
+      <input id="rabtext" class="adressfalt" type="text" maxlength="60" autocomplete="off" placeholder="Benämning, valfri (t.ex. Stamkundsrabatt)" aria-label="Rabattens benämning" style="margin-top:6px;font-size:16px">
+    </div>
+  </section>
+
+  <section class="kort">
+    <div class="tillval-huvud">
+      <div><h2>Visa förlängning</h2><span class="tips" id="fortips"></span></div>
+      <label class="vaxel"><input type="checkbox" id="forval"><span></span></label>
+    </div>
+  </section>
+
+  <section class="kort">
+    <div class="tillval-huvud">
+      <div><h2>Flagga för offert</h2><span class="tips">Påminnelse i mejlet om att skriva offert. Påverkar inte priset.</span></div>
+      <label class="vaxel"><input type="checkbox" id="offertval"><span></span></label>
+    </div>
+  </section>
+
+  <section id="resultat">
+    <div id="meddelanden"></div>
+    <div class="kort">
+      <h2>Specifikation</h2>
+      <div id="spec"></div>
+      <p class="moms">Alla belopp anges i kronor inklusive moms.</p>
+    </div>
+    <button type="button" class="knapp skicka" id="skicka">Skicka mejl</button>
+    <p id="skickastatus" role="status"></p>
+  </section>
+
+  <footer><button class="lank" id="laddaom" type="button">Hämta priserna på nytt</button></footer>
+
+  <div id="summa" role="button" aria-label="Visa specifikation">
+    <div class="rubrik"><b id="summarubrik">Totalt</b><span id="summaunder">inkl. moms</span></div>
+    <div class="tal" id="summatal">–</div>
+  </div>
+</main>
+
+<script>
+<?!= berakningskod() ?>
+</script>
+<script>
+(function () {
+  'use strict';
+  var B = Berakning;
+  var priser = null;
+  var pinMinne = '';
+  var NIVATEXT = {
+    light: 'Bostaden är i huvudsak möblerad och kompletteras med styling och enstaka möbler.',
+    komp: 'Kundens möbler används delvis och kompletteras med mer möblering och inredning.',
+    full: 'Bostaden möbleras och stylas i huvudsak med vår egen inredning.'
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var tillstand;
+
+  function nyttTillstand() {
+    return {
+      niva: null, zoner: 3, zonerManuell: false, uteValt: false, utezoner: 1, logValt: false,
+      refValt: false, refTimmar: 2, rabValt: false, rabTyp: 'procent', forVisa: false,
+      offert: false, justering: null, extra: []
+    };
+  }
+
+  // ---------- PIN ----------
+  var pinfalt = $('pinfalt'), pinmeddelande = $('pinmeddelande');
+  function pinText(text, arFel) { pinmeddelande.textContent = text; pinmeddelande.className = arFel ? 'fel' : ''; }
+
+  pinfalt.addEventListener('input', function () {
+    pinfalt.value = pinfalt.value.replace(/\D/g, '').slice(0, 6);
+    if (pinfalt.value.length === 6) loggaIn(pinfalt.value);
+  });
+
+  function loggaIn(pin) {
+    pinfalt.disabled = true;
+    pinText('Kontrollerar …');
+    google.script.run
+      .withSuccessHandler(function (svar) { hanteraSvar(svar, pin); })
+      .withFailureHandler(function () {
+        pinfalt.disabled = false; pinfalt.value = '';
+        pinText('Kunde inte nå servern. Kontrollera uppkopplingen och försök igen.', true);
+      })
+      .hamtaPriser(pin);
+  }
+
+  function hanteraSvar(svar, pin) {
+    pinfalt.disabled = false;
+    if (svar.status === 'ok') {
+      priser = svar.priser; pinMinne = pin; pinfalt.value = '';
+      $('pin').classList.add('dold'); $('kalkyl').classList.remove('dold');
+      uppdateraTips(); rakna();
+      return;
+    }
+    pinfalt.value = '';
+    $('kalkyl').classList.add('dold'); $('pin').classList.remove('dold');
+    if (svar.status === 'fel') pinText('Fel kod. ' + svar.kvar + ' försök kvar.', true);
+    else if (svar.status === 'sparrad') pinText('För många felaktiga försök. Försök igen om ' + svar.minuter + ' min.', true);
+    else if (svar.status === 'prisfel') pinText('Prisarket innehåller fel och behöver rättas av administratören:\n' + svar.fel.join('\n'), true);
+    else pinText(svar.meddelande || 'Något gick fel.', true);
+    if (svar.status !== 'sparrad') pinfalt.focus();
+  }
+
+  $('laddaom').addEventListener('click', function () {
+    if (!pinMinne) return;
+    var knapp = $('laddaom'); knapp.textContent = 'Hämtar …';
+    google.script.run
+      .withSuccessHandler(function (svar) {
+        knapp.textContent = 'Hämta priserna på nytt';
+        if (svar.status === 'ok') { priser = svar.priser; uppdateraTips(); rakna(); }
+        else hanteraSvar(svar, pinMinne);
+      })
+      .withFailureHandler(function () { knapp.textContent = 'Kunde inte hämta – försök igen'; })
+      .hamtaPriser(pinMinne);
+  });
+
+  // ---------- Inmatning ----------
+  function valjSegment(grupp, varde) {
+    Array.prototype.forEach.call($(grupp).querySelectorAll('button'), function (b) {
+      var vald = b.getAttribute('data-varde') === varde;
+      b.classList.toggle('vald', vald); b.setAttribute('aria-checked', vald);
+    });
+  }
+
+  $('niva').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    tillstand.niva = b.getAttribute('data-varde'); rakna();
+  });
+  $('rabtyp').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    tillstand.rabTyp = b.getAttribute('data-varde'); rakna();
+  });
+
+  var GRANSER = { zoner: [1, 30], utezoner: [1, 10], refresh: [0.5, 24] };
+  var FALT = { zoner: 'zoner', utezoner: 'utezoner', refresh: 'refTimmar' };
+  Array.prototype.forEach.call(document.querySelectorAll('.stegare'), function (s) {
+    s.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var falt = s.getAttribute('data-falt'), g = GRANSER[falt], nyckel = FALT[falt];
+      var v = Math.round((tillstand[nyckel] + Number(b.getAttribute('data-steg'))) * 2) / 2;
+      tillstand[nyckel] = Math.min(g[1], Math.max(g[0], v));
+      if (falt === 'zoner') tillstand.zonerManuell = true;
+      rakna();
+    });
+  });
+
+  [['uteval', 'uteValt', 'utekropp'], ['logval', 'logValt', 'logkropp'], ['refval', 'refValt', 'refkropp'], ['rabval', 'rabValt', 'rabkropp'], ['forval', 'forVisa', null], ['offertval', 'offert', null]]
+    .forEach(function (v) {
+      $(v[0]).addEventListener('change', function () {
+        tillstand[v[1]] = this.checked;
+        if (v[2]) $(v[2]).classList.toggle('dold', !this.checked);
+        rakna();
+      });
+    });
+
+  ['yta', 'uteyta', 'logistik', 'rabatt', 'rabtext'].forEach(function (id) { $(id).addEventListener('input', rakna); });
+  $('adress').addEventListener('input', function () { if (!skickar) skickaStatus('', ''); uppdateraSkicka(); });
+
+  /** Läser ett textfält. Tomt = null, ogiltigt = NaN. */
+  function lasTal(id) {
+    var s = $(id).value.trim();
+    if (s === '') return null;
+    var n = B.tal(s);
+    return isNaN(n) ? NaN : n;
+  }
+
+  $('nykalkyl').addEventListener('click', function () {
+    tillstand = nyttTillstand();
+    ['adress', 'yta', 'uteyta', 'logistik', 'rabatt', 'rabtext'].forEach(function (id) { $(id).value = ''; });
+    ['uteval', 'logval', 'refval', 'rabval', 'forval', 'offertval'].forEach(function (id) { $(id).checked = false; });
+    ['utekropp', 'logkropp', 'refkropp', 'rabkropp'].forEach(function (id) { $(id).classList.add('dold'); });
+    ritaExtra();
+    $('skickastatus').textContent = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    rakna();
+  });
+
+  $('summa').addEventListener('click', function () { $('resultat').scrollIntoView({ behavior: 'smooth' }); });
+
+  function uppdateraTips() {
+    var o = priser.ovrigt;
+    $('reftips').textContent = 'Minst ' + B.decimal(o.refresh_min_timmar) + ' tim debiteras, ' + B.kr(o.refresh_timpris) + ' kr/tim';
+    $('fortips').textContent = 'Visas separat, ingår inte i totalen. ' + B.decimal(o.forlangning_procent_vecka) + ' % per påbörjad vecka efter ' + o.inkluderade_veckor + ' veckor';
+    $('utezontips').textContent = 'Den första ingår, därefter ' + B.kr(o.extra_utezon) + ' kr st';
+  }
+
+  // ---------- Beräkning och visning ----------
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function rakna() {
+    if (!priser) return;
+    if (!skickar) skickaStatus('', '');
+    var t = tillstand;
+    valjSegment('niva', t.niva); valjSegment('rabtyp', t.rabTyp);
+    $('rabenhet').textContent = t.rabTyp === 'procent' ? '%' : 'kr';
+    $('rabatt').setAttribute('inputmode', t.rabTyp === 'procent' ? 'decimal' : 'numeric');
+    $('rabtips').textContent = t.rabTyp === 'procent' ? 'Av hela totalen' : 'Dras från totalen';
+    $('nivabeskr').textContent = t.niva ? NIVATEXT[t.niva] : 'Välj nivå för att räkna fram stagingpriset.';
+    $('zonervisning').textContent = t.zoner;
+    $('utezonervisning').textContent = t.utezoner;
+    $('refvisning').textContent = B.decimal(t.refTimmar) + ' tim';
+
+    var yta = lasTal('yta'), uteyta = t.uteValt ? lasTal('uteyta') : null;
+    var logistik = t.logValt ? lasTal('logistik') : null;
+    var rabatt = t.rabValt ? lasTal('rabatt') : null;
+
+    var ogiltiga = [];
+    var extraposter = t.extra.map(function (e, i) {
+      var pris = e.pris.trim() === '' ? null : B.tal(e.pris);
+      var rad = $('extralista').children[i];
+      if (rad) rad.querySelector('.inmatning').classList.toggle('ogiltig', typeof pris === 'number' && isNaN(pris));
+      if (typeof pris === 'number' && isNaN(pris)) ogiltiga.push('extrapris');
+      return { text: e.text, pris: pris };
+    });
+    [['yta', 'ytaram', yta], ['uteyta', 'uteram', uteyta], ['logistik', 'logram', logistik], ['rabatt', 'rabram', rabatt]]
+      .forEach(function (f) {
+        var bad = typeof f[2] === 'number' && isNaN(f[2]);
+        $(f[1]).classList.toggle('ogiltig', bad);
+        if (bad) ogiltiga.push(f[0]);
+      });
+
+    // Zoner: följer antalet som ingår vid ytan tills stylisten själv justerar
+    if (typeof yta === 'number' && !isNaN(yta) && yta > 0) {
+      var ing = B.ingaendeZoner(priser, yta);
+      if (!t.zonerManuell) t.zoner = ing;
+      $('zontips').textContent = ing + ' ingår vid ' + B.decimal(yta) + ' kvm' + (t.zonerManuell && t.zoner !== ing ? ' · justerat' : '');
+    } else $('zontips').textContent = 'Antal som ingår väljs när ytan är ifylld';
+    $('zonervisning').textContent = t.zoner;
+
+    var meddelanden = [];
+    var res = null;
+    var stagingUtanNiva = !t.niva && typeof yta === 'number' && yta > 0;
+
+    if (ogiltiga.length) {
+      meddelanden.push('<div class="ruta fel"><strong>Kontrollera inmatningen</strong>Ange ett tal i de markerade fälten.</div>');
+    } else {
+      var inn = {
+        niva: t.niva || 'light',
+        yta: t.niva ? yta : null,
+        zoner: t.zoner,
+        uteyta: t.niva ? uteyta : null,
+        utezoner: t.uteValt && t.niva ? t.utezoner : 0,
+        logistik: logistik,
+        refreshValt: t.refValt, refreshTimmar: t.refTimmar,
+        forlangVisa: t.forVisa,
+        rabattTyp: t.rabValt && rabatt !== null ? t.rabTyp : null, rabattVarde: rabatt,
+        rabattText: t.rabValt ? $('rabtext').value : '',
+        extraposter: extraposter,
+        manuellOffert: t.offert,
+        accepteradJustering: t.justering
+      };
+      res = B.berakna(priser, inn);
+      senasteInn = inn;
+      if (res.fel.length) {
+        meddelanden.push('<div class="ruta fel"><strong>Kontrollera inmatningen</strong><ul>' + res.fel.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></div>');
+        res = null;
+      }
+    }
+    if (stagingUtanNiva) meddelanden.push('<div class="ruta varning"><strong>Välj stagingnivå</strong>Stagingpriset räknas när nivån är vald.</div>');
+
+    if (res) {
+      if (res.offert) {
+        meddelanden.push('<div class="ruta offert"><strong>Kräver bedömning</strong>' +
+          esc(res.offertSkal.join(' · ')) + (res.saknas.length ? '. Delar som kräver bedömning ingår inte i summan.' : '.') + '</div>');
+      }
+      if (res.flaggad) meddelanden.push('<div class="ruta offert"><strong>Flaggad för offert</strong>Syns i mejlet. Priset påverkas inte.</div>');
+      res.varningar.forEach(function (v) {
+        meddelanden.push('<div class="ruta varning"><strong>Gränshopp</strong>' + esc(v.text) +
+          '<br><button type="button" class="knapp" id="anvandforslag">Använd föreslaget pris</button></div>');
+      });
+    }
+    $('meddelanden').innerHTML = meddelanden.join('');
+    var anv = $('anvandforslag');
+    if (anv) anv.addEventListener('click', function () { tillstand.justering = res.gransforslag.nyckel; rakna(); });
+
+    senasteRes = res;
+    visaSpec(res);
+    visaSumma(res);
+    uppdateraSkicka();
+  }
+
+  function visaSpec(res) {
+    if (!res || !res.harInnehall) {
+      $('spec').innerHTML = '<p class="tom">Fyll i stagingnivå och yta, eller välj ett tillval.</p>';
+      return;
+    }
+    var html = '<ul class="spec">';
+    res.rader.forEach(function (r) {
+      html += '<li><div><span class="namn">' + esc(r.text) + '</span><span class="detalj">' + esc(r.detalj) + '</span></div><div>';
+      html += r.status === 'ok' ? '<div class="belopp">' + B.kr(r.belopp) + '</div>' : '<span class="bricka">Kräver bedömning</span>';
+      if (r.id === 'justering') html += '<button type="button" class="angra" id="angrajustering">Ångra</button>';
+      html += '</div></li>';
+    });
+    html += '</ul>';
+    if (res.stagingKomplett && res.stagingunderlag !== null) {
+      html += '<div class="summarad underlag"><span>Stagingunderlag<span class="tips">Grund för förlängning – ange i offerten</span></span><span class="belopp">' + B.kr(res.stagingunderlag) + '</span></div>';
+    }
+    if (res.total !== null) {
+      html += '<div class="summarad"><span>' + (res.preliminar ? 'Totalt (preliminärt)' : 'Totalt') + '</span><span class="belopp">' + B.kr(res.total) + ' kr</span></div>';
+    } else {
+      html += '<div class="summarad"><span>Delsumma, beräknade delar<span class="tips">Saknas: ' + esc(res.saknas.join(', ')) + '</span></span><span class="belopp">' + B.kr(res.delsumma) + ' kr</span></div>';
+    }
+    if (res.forlangning) {
+      var f = res.forlangning;
+      html += '<div class="forlang">Vid förlängning, ingår inte i totalen: ' + (f.perVecka === null ? 'kräver komplett stagingunderlag.'
+        : '<b>' + B.kr(f.perVecka) + ' kr</b> per påbörjad vecka efter ' + f.veckor + ' veckor (' + B.decimal(f.procent) + ' % av stagingunderlaget, före rabatt).') + '</div>';
+    }
+    $('spec').innerHTML = html;
+    var angra = $('angrajustering');
+    if (angra) angra.addEventListener('click', function () { tillstand.justering = null; rakna(); });
+  }
+
+  function visaSumma(res) {
+    var rubrik = $('summarubrik'), under = $('summaunder'), tal = $('summatal');
+    rubrik.classList.remove('prel');
+    if (!res || !res.harInnehall) { rubrik.textContent = 'Totalt'; under.textContent = 'inkl. moms'; tal.innerHTML = '–'; return; }
+    if (res.total !== null) {
+      rubrik.textContent = res.preliminar ? 'Preliminärt' : 'Totalt';
+      if (res.preliminar) rubrik.classList.add('prel');
+      under.textContent = 'inkl. moms';
+      tal.innerHTML = B.kr(res.total) + '<small>kr</small>';
+    } else {
+      rubrik.textContent = 'Kräver bedömning'; rubrik.classList.add('prel');
+      under.textContent = 'Delsumma beräknade delar';
+      tal.innerHTML = B.kr(res.delsumma) + '<small>kr</small>';
+    }
+  }
+
+  // ---------- Skicka mejl ----------
+  var senasteInn = null, senasteRes = null, skickar = false;
+  function uppdateraSkicka() {
+    var kan = !!(senasteRes && senasteRes.harInnehall && tillstand.niva && $('adress').value.trim());
+    $('skicka').disabled = skickar || !kan;
+    if (!skickar && !$('skickastatus').classList.contains('ok') && !$('skickastatus').classList.contains('fel')) {
+      $('skickastatus').textContent = !$('adress').value.trim() ? 'Ange adressen för att kunna skicka.' : (!kan ? 'Välj nivå och fyll i kalkylen för att kunna skicka.' : '');
+    }
+  }
+  function skickaStatus(text, typ) { var el = $('skickastatus'); el.textContent = text; el.className = typ || ''; }
+
+  $('skicka').addEventListener('click', function () {
+    if (!senasteRes || !senasteInn) return;
+    skickar = true; uppdateraSkicka(); skickaStatus('Skickar …');
+    google.script.run
+      .withSuccessHandler(function (svar) {
+        skickar = false;
+        if (svar.status === 'ok') skickaStatus('Skickat till ' + svar.mottagare + '.', 'ok');
+        else if (svar.status === 'inmatningsfel' || svar.status === 'prisfel') skickaStatus((svar.fel || []).join(' '), 'fel');
+        else if (svar.status === 'mejlfel') skickaStatus(svar.meddelande, 'fel');
+        else { skickaStatus('', ''); hanteraSvar(svar, pinMinne); }
+        uppdateraSkicka();
+      })
+      .withFailureHandler(function () {
+        skickar = false; skickaStatus('Kunde inte nå servern. Försök igen.', 'fel'); uppdateraSkicka();
+      })
+      .skickaMejl(pinMinne, senasteInn, $('adress').value);
+  });
+
+  // ---------- Extraposter ----------
+  var MAX_EXTRA = 10;
+  function ritaExtra() {
+    var lista = $('extralista');
+    lista.innerHTML = '';
+    tillstand.extra.forEach(function (e, i) {
+      var rad = document.createElement('div');
+      rad.className = 'extrarad';
+      rad.innerHTML = '<input class="extratext" type="text" maxlength="80" placeholder="Vad avses" aria-label="Extrapost ' + (i + 1) + '">' +
+        '<div class="inmatning"><input class="extrapris" type="text" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Pris"><span>kr</span></div>' +
+        '<button type="button" class="tabort" aria-label="Ta bort">×</button>';
+      rad.querySelector('.extratext').value = e.text;
+      rad.querySelector('.extrapris').value = e.pris;
+      rad.querySelector('.extratext').addEventListener('input', function () { tillstand.extra[i].text = this.value; rakna(); });
+      rad.querySelector('.extrapris').addEventListener('input', function () { tillstand.extra[i].pris = this.value; rakna(); });
+      rad.querySelector('.tabort').addEventListener('click', function () { tillstand.extra.splice(i, 1); ritaExtra(); rakna(); });
+      lista.appendChild(rad);
+    });
+    $('extraplus').disabled = tillstand.extra.length >= MAX_EXTRA;
+  }
+  $('extraplus').addEventListener('click', function () {
+    if (tillstand.extra.length >= MAX_EXTRA) return;
+    tillstand.extra.push({ text: '', pris: '' });
+    ritaExtra();
+    var rader = $('extralista').querySelectorAll('.extratext');
+    rader[rader.length - 1].focus();
+    rakna();
+  });
+
+  tillstand = nyttTillstand();
+  pinfalt.focus();
+})();
+</script>
+</body>
+</html>
