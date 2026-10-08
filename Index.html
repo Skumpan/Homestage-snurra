@@ -502,10 +502,6 @@
     if (stagingUtanNiva) meddelanden.push('<div class="ruta varning"><strong>Välj stagingnivå</strong>Stagingpriset räknas när nivån är vald.</div>');
 
     if (res) {
-      if (res.offert) {
-        meddelanden.push('<div class="ruta offert"><strong>Kräver bedömning</strong>' +
-          esc(res.offertSkal.join(' · ')) + (res.saknas.length ? '. Delar som kräver bedömning ingår inte i summan.' : '.') + '</div>');
-      }
       if (res.flaggad) meddelanden.push('<div class="ruta offert"><strong>Flaggad för offert</strong>Syns i mejlet. Priset påverkas inte.</div>');
       res.varningar.forEach(function (v) {
         meddelanden.push('<div class="ruta varning"><strong>Gränshopp</strong>' + esc(v.text) +

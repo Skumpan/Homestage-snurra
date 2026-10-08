@@ -46,6 +46,6 @@ Säg kort vilken nivå du valde och varför, innan du börjar.
 Sammanfatta på 2-4 meningar: vad som gjordes, vad som testades, vad som inte kunde testas eller bevisas, och nästa steg. Nämn också allt som användaren bett om men som inte blev gjort.
 
 ## Projektfakta (fyll i när projektet är valt)
-- Språk/teknik:
-- Hur man kör projektet:
-- Hur man kör tester:
+- Språk/teknik: Google Apps Script (Kod.gs, Berakning.gs) med en webbsida i HTML/JavaScript (Index.html), kopplat till ett Google-kalkylblad.
+- Hur man kör projektet: Koden kopieras in i Apps Script-editorn och provas i kalkylbladet. Den går inte att köra i molnet.
+- Hur man kör tester: `node tests/berakning.test.js` (Node finns i molnet). Testar beräkningarna i Berakning.gs med standardpriser. Kod.gs (PIN, kalkylblad, mejl) och själva sidan kan bara provas i Apps Script.
