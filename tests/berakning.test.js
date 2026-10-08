@@ -247,6 +247,74 @@ test('Textversionen av mejlet påverkas inte av loggan', () => {
   sant(m.text.indexOf('Storgatan 1') >= 0 && m.text.replace(/ /g, ' ').indexOf('TOTALT: 15 000 kr') >= 0, 'text saknar adress/total');
 });
 
+// ---- Mejl: ämne, rubrik, datum, momsrad, förlängning ----
+const utanTaggar = (h) => h.replace(/<[^>]*>/g, '');
+const NBSP = ' ';
+const antal = (s, d) => s.split(d).length - 1;
+test('Mejlets ämne är exakt "<adress> - h.e.m prisberäkning"', () => {
+  lika(B.byggMejl(P, inm({}), 'Storgatan 1', 'x').amne, 'Storgatan 1 - h.e.m prisberäkning');
+  lika(B.byggMejl(P, inm({}), '  Villa   Björk 5B ', 'x').amne, 'Villa Björk 5B - h.e.m prisberäkning');
+});
+test('Mejlet saknar "Prisberäkning homestaging" och datum/klockslag', () => {
+  [inm({}), inm({ forlangVisa: true, rabattTyp: 'procent', rabattVarde: 5 })].forEach((i) => {
+    const m = B.byggMejl(P, i, 'Storgatan 1', '2026-01-01 12:30');
+    [m.html, utanTaggar(m.html), m.text].forEach((s) => {
+      sant(!/prisberäkning homestaging/i.test(s), 'rubrik kvar');
+      sant(!/\d{4}-\d{2}-\d{2}/.test(s), 'datum kvar');
+      sant(!/\b\d{1,2}:\d{2}\b/.test(s), 'klockslag kvar');
+      sant(!/\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b/.test(s), 'annat datumformat kvar');
+    });
+  });
+});
+test('Momsraden står under totalsumman i varje nivåblock (3 i html, 3 i text)', () => {
+  const M = 'Alla belopp i kronor inklusive moms';
+  const m = B.byggMejl(P, inm({ niva: 'komp' }), 'Storgatan 1', 'x');
+  lika(antal(m.html, M), 3, 'html'); lika(antal(m.text, M), 3, 'text');
+  // html: varje momsrad kommer direkt efter en tabell som slutar med Totalt
+  lika(antal(m.html, '</table><p style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7a7268;margin:8px 0 0">' + M), 3, 'html direkt efter tabell');
+  // momsrad före första totalsumman = i toppen
+  sant(m.html.indexOf(M) > m.html.indexOf('Totalt'), 'html: moms före första totalen');
+  sant(m.text.indexOf(M) > m.text.indexOf('TOTALT'), 'text: moms före första totalen');
+  // text: raden direkt efter varje TOTALT-rad
+  const rader = m.text.split('\n');
+  const tot = rader.map((r, i) => (r.indexOf('TOTALT') === 0 ? i : -1)).filter((i) => i >= 0);
+  lika(tot.length, 3, 'antal TOTALT-rader');
+  tot.forEach((i) => lika(rader[i + 1], M, 'rad efter TOTALT'));
+  // och inte i toppen: adressen är första raden, momsraden inte rad 2
+  lika(rader[0], 'Storgatan 1'); sant(rader[1] !== M, 'moms i toppen');
+});
+test('Momsraden finns en gång när bara en nivå visas (yta saknas ger fel, så 3 nivåer krävs yta)', () => {
+  const m = B.byggMejl(P, inm({ yta: 60 }), 'A 1', 'x');
+  lika(antal(m.html, 'Alla belopp i kronor inklusive moms'), 1 + m.ovriga.length);
+  lika(m.ovriga.length, 2);
+});
+test('Förlängning: "Pris förlängning <belopp> kr per påbörjad vecka efter 6 veckor (10 % ...)" i html och text', () => {
+  // Handräknat, 60 kvm: Light 15 000 -> 1 500, Komp 18 000 -> 1 800, Full 21 000 -> 2 100 (10 %)
+  const m = B.byggMejl(P, inm({ niva: 'full', forlangVisa: true }), 'Storgatan 1', 'x');
+  const forv = (b) => 'Pris förlängning ' + b + ' kr per påbörjad vecka efter 6 veckor (10 % av stagingunderlaget, före rabatt).';
+  const h = utanTaggar(m.html);
+  ['2' + NBSP + '100', '1' + NBSP + '500', '1' + NBSP + '800'].forEach((b) => {
+    sant(h.indexOf(forv(b)) >= 0, 'html saknar: ' + forv(b));
+    sant(m.text.indexOf(forv(b)) >= 0, 'text saknar: ' + forv(b));
+  });
+  lika(antal(h, 'Pris förlängning '), 3, 'html antal'); lika(antal(m.text, 'Pris förlängning '), 3, 'text antal');
+  sant(m.html.indexOf('>2' + NBSP + '100 kr</b> per påbörjad vecka') >= 0, 'belopp ska vara i fetstil');
+  lika(m.text.split('\n').filter((r) => r.indexOf('Pris förlängning ') === 0).length, 3, 'raden ska börja med texten');
+  [m.html, h, m.text].forEach((s) => {
+    sant(s.indexOf('Vid förlängning') < 0, '"Vid förlängning" kvar');
+    sant(s.indexOf('ingår inte i totalen') < 0, '"ingår inte i totalen" kvar');
+  });
+});
+test('Förlängningsbeloppet räknas före rabatt och är inte med i totalen', () => {
+  const m = B.byggMejl(P, inm({ niva: 'full', forlangVisa: true, rabattTyp: 'belopp', rabattVarde: 1000 }), 'A 1', 'x');
+  sant(m.text.indexOf('Pris förlängning 2' + NBSP + '100 kr') >= 0, 'ska vara 10 % av 21 000 trots rabatt');
+  lika(m.vald.total, 20000, 'total med rabatt');
+});
+test('Utan forlangVisa finns ingen förlängningstext i mejlet', () => {
+  const m = B.byggMejl(P, inm({}), 'A 1', 'x');
+  sant(m.html.indexOf('Pris förlängning') < 0 && m.text.indexOf('Pris förlängning') < 0);
+});
+
 const loggaKod = fs.readFileSync(path.join(__dirname, '..', 'Logga.gs'), 'utf8');
 function loggaStrang() {
   const t = loggaKod.match(/var\s+LOGGA_BASE64\s*=\s*'([^']*)'\s*;/);
